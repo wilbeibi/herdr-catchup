@@ -5,6 +5,10 @@ min_herdr_version = "0.7.0"
 description = "Catch up on, fork, and hand off coding-agent sessions (codex, claude, opencode, pi-agent) via catchup"
 platforms = ["linux", "macos"]
 
+# Each action resolves the focused pane's project directory and opens the
+# matching pane entrypoint there (catchup finds sessions by cwd, and fork
+# needs a real TTY — so catchup always runs inside a pane, never headless).
+
 [[actions]]
 id = "summary"
 title = "Catch up (session summary)"
@@ -19,3 +23,21 @@ command = ["bash", "bin/run.sh", "fork"]
 id = "handoff"
 title = "Hand off to another agent..."
 command = ["bash", "bin/run.sh", "handoff"]
+
+[[panes]]
+id = "summary"
+title = "catchup: summary"
+placement = "split"
+command = ["bash", "-c", "exec bash \"$HERDR_PLUGIN_ROOT/bin/run.sh\" --in-pane summary"]
+
+[[panes]]
+id = "fork"
+title = "catchup: fork"
+placement = "split"
+command = ["bash", "-c", "exec bash \"$HERDR_PLUGIN_ROOT/bin/run.sh\" --in-pane fork"]
+
+[[panes]]
+id = "handoff"
+title = "catchup: handoff"
+placement = "split"
+command = ["bash", "-c", "exec bash \"$HERDR_PLUGIN_ROOT/bin/run.sh\" --in-pane handoff"]

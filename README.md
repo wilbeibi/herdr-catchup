@@ -21,7 +21,7 @@ herdr plugin install wilbeibi/herdr-catchup
 
 ## Actions
 
-Each action splits a pane to the right of the focused pane. The split inherits the project directory, which is how catchup finds the right session.
+Each action opens a plugin pane to the right, started in the focused pane's project directory — which is how catchup finds the right session. The summary pane stays in the background and closes on Enter; fork and handoff panes take focus, since you'll be typing into the agent they launch.
 
 | Action | What it does |
 |---|---|
@@ -53,9 +53,9 @@ description = "hand session off to another agent"
 
 ## How it works, and limits
 
-- catchup resolves sessions by the working directory, and `fork` launches the agent CLI interactively — so every action runs catchup inside a real split pane, never headless. Errors (`no sessions found`, missing binary, handing off to the same agent) print in that pane where you can see them.
+- catchup resolves sessions by the working directory, and `fork` launches the agent CLI interactively — so every action runs catchup inside a real pane (`herdr plugin pane open --cwd <project>`), never headless. Errors (`no sessions found`, missing binary, handing off to the same agent) print in that pane and wait for Enter, so they can't vanish unread.
+- If an action seems to do nothing (no pane appears), check `herdr plugin log list --plugin wilbeibi.catchup` — pre-pane failures land there.
 - Requires herdr ≥ 0.7.0 on Linux or macOS.
-- The plugin's install path must not contain a single quote.
 
 ## Local development
 
