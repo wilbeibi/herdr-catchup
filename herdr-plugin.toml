@@ -1,0 +1,21 @@
+id = "wilbeibi.catchup"
+name = "Catchup"
+version = "0.1.0"
+min_herdr_version = "0.7.0"
+description = "Catch up on, fork, and hand off coding-agent sessions (codex, claude, opencode, pi-agent) via catchup"
+platforms = ["linux", "macos"]
+
+[[actions]]
+id = "summary"
+title = "Catch up (session summary)"
+command = ["bash", "bin/run.sh", "summary"]
+
+[[actions]]
+id = "fork"
+title = "Fork session here"
+command = ["bash", "bin/run.sh", "fork"]
+
+[[actions]]
+id = "handoff"
+title = "Hand off to another agent..."
+command = ["bash", "bin/run.sh", "handoff"]
