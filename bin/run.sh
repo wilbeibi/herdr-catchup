@@ -10,7 +10,7 @@
 # TTY, so catchup only ever runs in the pane, never in role 1.
 set -euo pipefail
 
-AGENTS=(codex claude opencode pi-agent)
+AGENTS=(codex claude agy opencode pi-agent)
 
 # ---------- Role 2: inside the plugin pane ----------
 
@@ -24,9 +24,10 @@ in_pane() {
 
   if ! command -v catchup >/dev/null 2>&1; then
     echo "herdr-catchup: 'catchup' not found on PATH."
-    echo "Install it with:"
-    echo "  go install github.com/wilbeibi/catchup@latest"
-    echo "and make sure \$(go env GOPATH)/bin is on your PATH."
+    echo "Install it with one of:"
+    echo "  brew install wilbeibi/tap/catchup"
+    echo "  curl -fsSL https://raw.githubusercontent.com/wilbeibi/catchup/main/scripts/install.sh | sh"
+    echo "  go install github.com/wilbeibi/catchup@latest   # then add \$(go env GOPATH)/bin to PATH"
     hold_open
     exit 1
   fi

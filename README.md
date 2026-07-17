@@ -1,16 +1,25 @@
 # herdr-catchup
 
-Catch up on, fork, and hand off coding-agent sessions from inside [herdr](https://herdr.dev).
+### Pick up a session in the next pane over
 
-[catchup](https://github.com/wilbeibi/catchup) reads local agent session history (Codex, Claude Code, OpenCode, Pi Agent) and can resume a session natively or seed a *different* agent with the transcript. This plugin puts that one keystroke away in herdr: an agent pane hits its usage limit, you press a key, and a new pane opens next to it running another agent that already knows the whole conversation.
+An agent pane hits its limit. You press a key. A pane opens beside it running another agent that already knows the job.
+
+This plugin is [catchup](https://github.com/wilbeibi/catchup) wired into [herdr](https://herdr.dev). catchup reads the local session history for Codex, Claude Code, Antigravity, OpenCode, and Pi Agent, and picks the work back up in the same agent or a different one. herdr knows which project the focused pane is in, which is the one thing catchup needs to find the right session.
+
+Three actions: read a session, fork it, hand it to another agent.
 
 ## Install
 
-Prerequisite — the `catchup` binary:
+First the `catchup` binary:
 
 ```bash
-go install github.com/wilbeibi/catchup@latest
-# make sure $(go env GOPATH)/bin is on your PATH
+brew install wilbeibi/tap/catchup
+
+# or a prebuilt binary, no Go needed
+curl -fsSL https://raw.githubusercontent.com/wilbeibi/catchup/main/scripts/install.sh | sh
+
+# or from source
+go install github.com/wilbeibi/catchup@latest   # then put $(go env GOPATH)/bin on your PATH
 ```
 
 Then:
@@ -21,15 +30,15 @@ herdr plugin install wilbeibi/herdr-catchup
 
 ## Actions
 
-Each action opens a plugin pane to the right, started in the focused pane's project directory — which is how catchup finds the right session. The summary pane stays in the background and closes on Enter; fork and handoff panes take focus, since you'll be typing into the agent they launch.
+Each action opens a pane to the right, in the focused pane's project directory. That directory is how catchup finds the session. The summary pane stays in the background and closes on Enter. Fork and handoff panes take focus — you'll be typing into the agent they launch.
 
 | Action | What it does |
 |---|---|
-| `wilbeibi.catchup.summary` | Shows `catchup --since-compact` — a clean Markdown summary of the newest session in this project, without touching the running agent. |
-| `wilbeibi.catchup.fork` | Runs `catchup fork` — natively resumes the newest session in the new pane (e.g. `claude --resume <id> --fork-session`). |
-| `wilbeibi.catchup.handoff` | Asks which agent to hand off to (codex / claude / opencode / pi-agent), then runs `catchup fork --into <choice>` — the target agent starts seeded with the session transcript. |
+| `wilbeibi.catchup.summary` | `catchup --since-compact` — the newest session in this project as clean Markdown. Leaves the running agent alone. |
+| `wilbeibi.catchup.fork` | `catchup fork` — resumes that session natively in the new pane, e.g. `claude --resume <id> --fork-session`. Full state. |
+| `wilbeibi.catchup.handoff` | Asks which agent (codex / claude / agy / opencode / pi-agent), then `catchup fork --into <choice>`. The other agent starts with the transcript already in hand. |
 
-Invoke ad hoc with `herdr plugin action invoke wilbeibi.catchup.<action>`, or bind keys:
+Run one with `herdr plugin action invoke wilbeibi.catchup.<action>`, or bind keys:
 
 ```toml
 [[keys.command]]
@@ -51,11 +60,13 @@ command = "wilbeibi.catchup.handoff"
 description = "hand session off to another agent"
 ```
 
-## How it works, and limits
+## How it works
 
-- catchup resolves sessions by the working directory, and `fork` launches the agent CLI interactively — so every action runs catchup inside a real pane (`herdr plugin pane open --cwd <project>`), never headless. Errors (`no sessions found`, missing binary, handing off to the same agent) print in that pane and wait for Enter, so they can't vanish unread.
-- If an action seems to do nothing (no pane appears), check `herdr plugin log list --plugin wilbeibi.catchup` — pre-pane failures land there.
-- Requires herdr ≥ 0.7.0 on Linux or macOS.
+catchup finds sessions by working directory, and `fork` launches an agent CLI interactively. So every action runs catchup inside a real pane (`herdr plugin pane open --cwd <project>`), never headless. Errors — no sessions here, missing binary, handing an agent its own session — print in that pane and wait for Enter. They can't vanish unread.
+
+No pane at all? The failure happened before the pane existed. It's in `herdr plugin log list --plugin wilbeibi.catchup`.
+
+Needs herdr 0.7.0 or newer, on Linux or macOS.
 
 ## Local development
 
@@ -65,11 +76,12 @@ herdr plugin action list --plugin wilbeibi.catchup
 herdr plugin action invoke wilbeibi.catchup.summary
 ```
 
-## Future ideas
+## Ideas
 
-- Per-agent handoff actions (`handoff-codex`, …) for zero-prompt keybindings — `bin/run.sh handoff <target>` already supports it; each is a three-line manifest addition.
-- A `worktree.created` event hook that offers a catch-up summary in new worktrees.
-- Session search (`catchup -q`) once actions can take arguments.
+- A key per target agent (`handoff-codex`, …), so a handoff is one press and no menu. `bin/run.sh handoff <target>` already takes the argument; each one is three lines of manifest.
+- A `worktree.created` hook that forks the originating session into the new worktree. catchup has the missing piece now: sessions are keyed by directory, and `--dir` reaches a session from a tree it never ran in — `catchup fork claude --dir <origin>`.
+- Session search, `catchup -q "topic"`, once actions can take arguments.
+- Handing off work that isn't a local session. `catchup fork --into <agent> --from <file | - | url>` seeds an agent from a transcript, a pipe, or a URL — a pane could pick up a job that started on another machine.
 
 ## License
 
