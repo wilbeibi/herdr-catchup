@@ -10,7 +10,10 @@
 # TTY, so catchup only ever runs in the pane, never in role 1.
 set -euo pipefail
 
-AGENTS=(codex claude agy opencode pi-agent)
+# Handoff targets: agents catchup can *seed* with `fork --into`. kimi is
+# omitted deliberately — it can't start interactive with a seed prompt, so
+# catchup refuses `--into kimi` (fork/catch-up still work on kimi sessions).
+AGENTS=(codex claude agy cline cursor opencode pi-agent)
 
 # ---------- Role 2: inside the plugin pane ----------
 

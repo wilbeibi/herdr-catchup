@@ -4,7 +4,7 @@
 
 An agent pane hits its limit. You press a key. A pane opens beside it running another agent that already knows the job.
 
-This plugin is [catchup](https://github.com/wilbeibi/catchup) wired into [herdr](https://herdr.dev). catchup reads the local session history for Codex, Claude Code, Antigravity, OpenCode, and Pi Agent, and picks the work back up in the same agent or a different one. herdr knows which project the focused pane is in, which is the one thing catchup needs to find the right session.
+This plugin is [catchup](https://github.com/wilbeibi/catchup) wired into [herdr](https://herdr.dev). catchup reads the local session history for Codex, Claude Code, Antigravity, Cline, Cursor, Kimi, OpenCode, and Pi Agent, and picks the work back up in the same agent or a different one. herdr knows which project the focused pane is in, which is the one thing catchup needs to find the right session.
 
 Three actions: read a session, fork it, hand it to another agent.
 
@@ -36,7 +36,7 @@ Each action opens a pane to the right, in the focused pane's project directory. 
 |---|---|
 | `wilbeibi.catchup.summary` | `catchup --since-compact` — the newest session in this project as clean Markdown. Leaves the running agent alone. |
 | `wilbeibi.catchup.fork` | `catchup fork` — resumes that session natively in the new pane, e.g. `claude --resume <id> --fork-session`. Full state. |
-| `wilbeibi.catchup.handoff` | Asks which agent (codex / claude / agy / opencode / pi-agent), then `catchup fork --into <choice>`. The other agent starts with the transcript already in hand. |
+| `wilbeibi.catchup.handoff` | Asks which agent (codex / claude / agy / cline / cursor / opencode / pi-agent), then `catchup fork --into <choice>`. The other agent starts with the transcript already in hand. |
 
 Run one with `herdr plugin action invoke wilbeibi.catchup.<action>`, or bind keys:
 
