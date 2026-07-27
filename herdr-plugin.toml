@@ -2,7 +2,7 @@ id = "wilbeibi.catchup"
 name = "Catchup"
 version = "0.3.0"
 min_herdr_version = "0.7.0"
-description = "Catch up on, fork, and hand off coding-agent sessions (codex, claude, agy, cline, cursor, kimi, opencode, pi-agent) via catchup"
+description = "Cross-agent coding-session handoff: summarize, fork, or hand this pane's session to another agent (codex, claude, agy, cline, cursor, kimi, opencode, pi-agent)"
 platforms = ["linux", "macos"]
 
 # Each action resolves the focused pane's project directory and opens the

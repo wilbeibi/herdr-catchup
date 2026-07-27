@@ -1,10 +1,16 @@
-# herdr-catchup
+# herdr-catchup — cross-agent session handoff for herdr
+
+herdr-catchup is a [herdr](https://herdr.dev) plugin for cross-agent coding-session handoff: from the pane an agent is working in, read that session, fork it, or hand it to a different agent — Claude Code to Codex, Cursor to OpenCode — without re-explaining the job.
+
+```bash
+herdr plugin install wilbeibi/herdr-catchup
+```
 
 ### Pick up a session in the next pane over
 
 An agent pane hits its limit. You press a key. A pane opens beside it running another agent that already knows the job.
 
-This plugin is [catchup](https://github.com/wilbeibi/catchup) wired into [herdr](https://herdr.dev). catchup reads the local session history for Codex, Claude Code, Antigravity, Cline, Cursor, Kimi, OpenCode, and Pi Agent, and picks the work back up in the same agent or a different one. herdr knows which project the focused pane is in, which is the one thing catchup needs to find the right session.
+This plugin is [catchup](https://github.com/wilbeibi/catchup) wired into herdr. catchup reads the local session history for Codex, Claude Code, Antigravity, Cline, Cursor, Kimi, OpenCode, and Pi Agent, and picks the work back up in the same agent or a different one. herdr knows which project the focused pane is in, which is the one thing catchup needs to find the right session.
 
 Three actions: read a session, fork it, hand it to another agent.
 
@@ -27,6 +33,8 @@ Then:
 ```bash
 herdr plugin install wilbeibi/herdr-catchup
 ```
+
+It is also listed in the [herdr plugin marketplace](https://herdr.dev/plugins/), which indexes public repos tagged `herdr-plugin`.
 
 ## Actions
 
@@ -60,6 +68,21 @@ command = "wilbeibi.catchup.handoff"
 description = "hand session off to another agent"
 ```
 
+## Agent support
+
+| Agent | Catch up | Fork in place | Handoff target |
+|---|---|---|---|
+| Claude Code | ✓ | ✓ branch | ✓ |
+| Codex | ✓ | ✓ branch | ✓ |
+| OpenCode | ✓ | ✓ branch | ✓ |
+| Pi Agent | ✓ | ✓ branch | ✓ |
+| Antigravity (`agy`) | ✓ | ✓ resume | ✓ |
+| Cline | ✓ | ✓ resume | ✓ |
+| Cursor | ✓ | ✓ resume | ✓ |
+| Kimi | ✓ | ✓ resume | — |
+
+*Fork in place* uses each agent's own resume path. Claude Code, Codex, OpenCode, and Pi Agent can branch a session, leaving the original intact; Antigravity, Cline, Cursor, and Kimi have no fork, so their native resume continues the session where it stopped. *Handoff target* is what `catchup fork --into` can launch: Kimi's CLI cannot start interactive with a seed prompt, so it can be read and forked but not handed to.
+
 ## How it works
 
 catchup finds sessions by working directory, and `fork` launches an agent CLI interactively. So every action runs catchup inside a real pane (`herdr plugin pane open --cwd <project>`), never headless. Errors — no sessions here, missing binary, handing an agent its own session — print in that pane and wait for Enter. They can't vanish unread.
@@ -67,6 +90,28 @@ catchup finds sessions by working directory, and `fork` launches an agent CLI in
 No pane at all? The failure happened before the pane existed. It's in `herdr plugin log list --plugin wilbeibi.catchup`.
 
 Needs herdr 0.7.0 or newer, on Linux or macOS.
+
+## Limits and non-goals
+
+- **Not a memory system.** It moves one session, once. No merged histories, no long-term store, no index across projects.
+- **Conversation only.** Tool calls, command output, and reasoning traces are stripped before the transcript reaches the next agent.
+- **Read-only except `fork`**, which launches an agent CLI.
+- **A handoff is a transcript, not native state.** Cross-agent `fork --into` seeds the new agent with the conversation; only same-agent fork keeps the agent's own session state.
+- **Directory-scoped.** Sessions are found by the focused pane's project directory. A pane sitting in `$HOME` finds nothing, and a session started elsewhere isn't reachable from here.
+- **No arguments yet.** herdr plugin actions take no parameters, so session search (`catchup -q`) and one-key-per-target handoff aren't wired up.
+- **Linux and macOS only**, herdr 0.7.0+.
+
+## Alternatives
+
+These solve nearby problems, and some of them pair well with this plugin rather than replacing it.
+
+| Instead of | What that gives you | Where this differs |
+|---|---|---|
+| `herdr agent read`, `tmux capture-pane` | The pane's visible scrollback, live | Scrollback is truncated, interleaved with tool output, and isn't something another agent can resume from. catchup reads the agent's own session file. |
+| A hand-written `HANDOFF.md` | Whatever you remembered to write down | Nothing to maintain. The transcript already exists on disk; catchup renders it on demand. |
+| `claude --resume`, `codex fork` | Native resume with full session state | Same agent only. `fork --into` is the part that crosses agents. |
+| [herdr-session-parker](https://github.com/iviaxpow3r/herdr-session-parker), [seshagy](https://github.com/lmilojevicc/seshagy) | Parking, discovering, and relaunching agent sessions and panes | Those manage where sessions live and how you get back to them. This one moves the conversation itself from one agent to another. |
+| The [catchup](https://github.com/wilbeibi/catchup) CLI on its own | Everything here, typed by hand, anywhere | The plugin supplies the one argument that's tedious in a multi-pane setup: which project the pane you're looking at is in. |
 
 ## Local development
 
