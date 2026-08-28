@@ -10,9 +10,9 @@ herdr plugin install wilbeibi/herdr-catchup
 
 An agent pane hits its limit. You press a key. A pane opens beside it running another agent that already knows the job.
 
-This plugin is [catchup](https://github.com/wilbeibi/catchup) wired into herdr. catchup reads the local session history for Codex, Claude Code, Antigravity, Cline, Cursor, Kimi, OpenCode, and Pi Agent, and picks the work back up in the same agent or a different one. herdr knows which project the focused pane is in, which is the one thing catchup needs to find the right session.
+This plugin is [catchup](https://github.com/wilbeibi/catchup) wired into herdr. catchup reads the local session history for Codex, Claude Code, Antigravity, Cline, Copilot CLI, Cursor, Kimi, OpenCode, and Pi Agent, and picks the work back up in the same agent or a different one. herdr knows which pane you are looking at, which agent is in it, and which session that agent holds — and that last one is something catchup cannot work out alone.
 
-Three actions: read a session, fork it, hand it to another agent.
+Five actions: read a session, fork it, hand it to a new agent, hand it to an agent already running in another pane, or ask that agent to review it.
 
 ## Install
 
@@ -38,13 +38,17 @@ It is also listed in the [herdr plugin marketplace](https://herdr.dev/plugins/),
 
 ## Actions
 
-Each action opens a pane to the right, in the focused pane's project directory. That directory is how catchup finds the session. The summary pane stays in the background and closes on Enter. Fork and handoff panes take focus — you'll be typing into the agent they launch.
+Each action opens a pane to the right, in the focused pane's project directory, and works on the exact session that pane's agent holds. The summary pane stays in the background and closes on Enter. The other four take focus — you'll be typing into a menu or into the agent they launch.
 
 | Action | What it does |
 |---|---|
-| `wilbeibi.catchup.summary` | `catchup --since-compact` — the newest session in this project as clean Markdown. Leaves the running agent alone. |
-| `wilbeibi.catchup.fork` | `catchup fork` — resumes that session natively in the new pane, e.g. `claude --resume <id> --fork-session`. Full state. |
-| `wilbeibi.catchup.handoff` | Asks which agent (codex / claude / agy / cline / cursor / opencode / pi-agent), then `catchup fork --into <choice>`. The other agent starts with the transcript already in hand. |
+| `wilbeibi.catchup.summary` | `catchup --since-compact` — that pane's session as clean Markdown. Leaves the running agent alone. |
+| `wilbeibi.catchup.fork` | `catchup fork` — resumes the session natively in the new pane, e.g. `claude --resume <id> --fork-session`. Full state. |
+| `wilbeibi.catchup.handoff` | Asks which agent (codex / claude / agy / cline / copilot / cursor / opencode / pi-agent), then `catchup fork --into <choice>` — a **new** agent, started with the transcript in hand. |
+| `wilbeibi.catchup.send` | Lists the agents **already running** in this herdr session, renders the transcript to a file, and hands the one you pick its path. No new process; the agent in that pane picks the work up. |
+| `wilbeibi.catchup.ask` | Same delivery, review framing: the other agent is asked to attack the assumptions of your latest turn, name a cheaper alternative, and say where it breaks. Two models arguing, one round. |
+
+`send` and `ask` are the two that only exist because of herdr: catchup can render any session, but only herdr knows which agents are alive right now and how to reach them.
 
 Run one with `herdr plugin action invoke wilbeibi.catchup.<action>`, or bind keys:
 
@@ -65,7 +69,13 @@ description = "fork session in a new pane"
 key = "prefix+h"
 type = "plugin_action"
 command = "wilbeibi.catchup.handoff"
-description = "hand session off to another agent"
+description = "hand session off to a new agent"
+
+[[keys.command]]
+key = "prefix+r"
+type = "plugin_action"
+command = "wilbeibi.catchup.ask"
+description = "ask a running agent to review this"
 ```
 
 ## Agent support
@@ -78,14 +88,21 @@ description = "hand session off to another agent"
 | Pi Agent | ✓ | ✓ branch | ✓ |
 | Antigravity (`agy`) | ✓ | ✓ resume | ✓ |
 | Cline | ✓ | ✓ resume | ✓ |
+| Copilot CLI | ✓ | ✓ resume | ✓ |
 | Cursor | ✓ | ✓ resume | ✓ |
 | Kimi | ✓ | ✓ resume | — |
 
-*Fork in place* uses each agent's own resume path. Claude Code, Codex, OpenCode, and Pi Agent can branch a session, leaving the original intact; Antigravity, Cline, Cursor, and Kimi have no fork, so their native resume continues the session where it stopped. *Handoff target* is what `catchup fork --into` can launch: Kimi's CLI cannot start interactive with a seed prompt, so it can be read and forked but not handed to.
+*Fork in place* uses each agent's own resume path. Claude Code, Codex, OpenCode, and Pi Agent can branch a session, leaving the original intact; Antigravity, Cline, Copilot, Cursor, and Kimi have no fork, so their native resume continues the session where it stopped. *Handoff target* is what `catchup fork --into` can launch: Kimi's CLI cannot start interactive with a seed prompt, so it can be read and forked but not handed to.
+
+`send` and `ask` have a wider reach than the table: they deliver text to a pane, so the receiving agent can be any agent herdr recognizes, including ones catchup cannot read. Only the *source* pane has to be an agent on this list.
 
 ## How it works
 
-catchup finds sessions by working directory, and `fork` launches an agent CLI interactively. So every action runs catchup inside a real pane (`herdr plugin pane open --cwd <project>`), never headless. Errors — no sessions here, missing binary, handing an agent its own session — print in that pane and wait for Enter. They can't vanish unread.
+**Which session.** catchup on its own selects the newest session in a directory. In herdr that is often the wrong one — two agents in one project is an ordinary afternoon, and recency cannot tell them apart. So the plugin reads `focused_pane_id` from the invocation context, asks `herdr agent get` for that pane's agent and session id, and pins every catchup call with `--id`. When herdr has no session for the pane (an unrecognized agent, a plain shell), it falls back to selecting by directory.
+
+**Where it runs.** `fork` launches an agent CLI interactively and the menus need a keyboard, so every action runs catchup inside a real pane (`herdr plugin pane open --cwd <project>`), never headless. Errors — no sessions here, missing binary, handing an agent its own session — print in that pane and wait for Enter. They can't vanish unread.
+
+**How a transcript travels.** `send` and `ask` write the transcript to a file under the plugin's state directory and prompt the other agent with its path. `herdr agent prompt` types into a live TUI; tens of KB of pasted transcript is slow at best and truncated at worst, so only the path is typed. The prompt names where the work came from and says the file is a record, not instructions — another model's output should not arrive as a command.
 
 No pane at all? The failure happened before the pane existed. It's in `herdr plugin log list --plugin wilbeibi.catchup`.
 
@@ -97,7 +114,8 @@ Needs herdr 0.7.0 or newer, on Linux or macOS.
 - **Conversation only.** Tool calls, command output, and reasoning traces are stripped before the transcript reaches the next agent.
 - **Read-only except `fork`**, which launches an agent CLI.
 - **A handoff is a transcript, not native state.** Cross-agent `fork --into` seeds the new agent with the conversation; only same-agent fork keeps the agent's own session state.
-- **Directory-scoped.** Sessions are found by the focused pane's project directory. A pane sitting in `$HOME` finds nothing, and a session started elsewhere isn't reachable from here.
+- **Pane-scoped.** The session comes from the focused pane, and the project directory from that pane's cwd. A pane sitting somewhere with no agent and no sessions finds nothing, and a session started elsewhere isn't reachable from here.
+- **One round, not a debate.** `ask` delivers a review request and stops. It does not wait for the answer, feed it back, or run rounds — that is an orchestrator, and herdr is already the layer that owns panes and agent lifecycle.
 - **No arguments yet.** herdr plugin actions take no parameters, so session search (`catchup -q`) and one-key-per-target handoff aren't wired up.
 - **Linux and macOS only**, herdr 0.7.0+.
 

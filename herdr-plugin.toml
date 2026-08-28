@@ -1,13 +1,18 @@
 id = "wilbeibi.catchup"
 name = "Catchup"
-version = "0.3.0"
+version = "0.4.0"
 min_herdr_version = "0.7.0"
-description = "Cross-agent coding-session handoff: summarize, fork, or hand this pane's session to another agent (codex, claude, agy, cline, cursor, kimi, opencode, pi-agent)"
+description = "Cross-agent coding-session handoff: summarize, fork, or hand this pane's session to another agent — a fresh one, or one already running in another pane"
 platforms = ["linux", "macos"]
 
-# Each action resolves the focused pane's project directory and opens the
-# matching pane entrypoint there (catchup finds sessions by cwd, and fork
-# needs a real TTY — so catchup always runs inside a pane, never headless).
+# Each action resolves the focused pane's project directory *and the exact
+# session it holds* (herdr names the pane's agent; `agent get` names its
+# session id), then opens the matching [[panes]] entrypoint there. catchup on
+# its own can only pick the newest session in a directory, which is the wrong
+# one whenever a herdr session has two agents in one project.
+#
+# Everything runs inside a pane, never headless: fork needs a real TTY, and the
+# send/ask menus need a keyboard.
 
 [[actions]]
 id = "summary"
@@ -21,8 +26,18 @@ command = ["bash", "bin/run.sh", "fork"]
 
 [[actions]]
 id = "handoff"
-title = "Hand off to another agent..."
+title = "Hand off to a new agent..."
 command = ["bash", "bin/run.sh", "handoff"]
+
+[[actions]]
+id = "send"
+title = "Send session to a running agent..."
+command = ["bash", "bin/run.sh", "send"]
+
+[[actions]]
+id = "ask"
+title = "Ask a running agent to review this..."
+command = ["bash", "bin/run.sh", "ask"]
 
 [[panes]]
 id = "summary"
@@ -41,3 +56,15 @@ id = "handoff"
 title = "catchup: handoff"
 placement = "split"
 command = ["bash", "-c", "exec bash \"$HERDR_PLUGIN_ROOT/bin/run.sh\" --in-pane handoff"]
+
+[[panes]]
+id = "send"
+title = "catchup: send"
+placement = "split"
+command = ["bash", "-c", "exec bash \"$HERDR_PLUGIN_ROOT/bin/run.sh\" --in-pane send"]
+
+[[panes]]
+id = "ask"
+title = "catchup: ask"
+placement = "split"
+command = ["bash", "-c", "exec bash \"$HERDR_PLUGIN_ROOT/bin/run.sh\" --in-pane ask"]
