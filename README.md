@@ -12,7 +12,7 @@ An agent pane hits its limit. You press a key. A pane opens beside it running an
 
 This plugin is [catchup](https://github.com/wilbeibi/catchup) wired into herdr. catchup reads the local session history for Codex, Claude Code, Antigravity, Cline, Copilot CLI, Cursor, DeepSeek (dsh), Kimi, OpenCode, Pi Agent, and ZCode, and picks the work back up in the same agent or a different one. herdr knows which pane you are looking at, which agent is in it, and which session that agent holds — and that last one is something catchup cannot work out alone.
 
-Five actions: read a session, fork it, hand it to a new agent, hand it to an agent already running in another pane, or ask that agent to review it.
+Six actions: read a session, fork it, hand it to a new agent, hand it to an agent already running in another pane, ask that agent to review it, or watch the multi-round threads those reviews can turn into.
 
 ## Install
 
@@ -38,7 +38,7 @@ It is also listed in the [herdr plugin marketplace](https://herdr.dev/plugins/),
 
 ## Actions
 
-Every action works on the exact session the focused pane's agent holds, in that pane's project directory. `summary`, `send`, and `ask` open as popups — session-modal, over the layout, gone when they close, so reading a session never rearranges your panes. `fork` and `handoff` open a real split to the right, because what they launch is an agent, and an agent has to be a pane herdr can see.
+Every action but `threads` works on the exact session the focused pane's agent holds, in that pane's project directory; `threads` is per-user, not per-session. `summary`, `send`, `ask`, and `threads` open as popups — session-modal, over the layout, gone when they close, so reading a session never rearranges your panes. `fork` and `handoff` open a real split to the right, because what they launch is an agent, and an agent has to be a pane herdr can see.
 
 Each action is available from the pane, workspace, tab, and selection menus.
 
@@ -49,6 +49,8 @@ Each action is available from the pane, workspace, tab, and selection menus.
 | `wilbeibi.catchup.handoff` | Asks which agent (codex / claude / agy / cline / copilot / cursor / opencode / pi-agent), then `catchup fork --into <choice>` — a **new** agent, started with the transcript in hand. |
 | `wilbeibi.catchup.send` | Lists the agents **already running** in this herdr session, renders the transcript to a file, and hands the one you pick its path. No new process; the agent in that pane picks the work up. |
 | `wilbeibi.catchup.ask` | Same delivery, review framing: the other agent is asked to attack the assumptions of your latest turn, name a cheaper alternative, and say where it breaks. Two models arguing, one round. |
+
+| `wilbeibi.catchup.threads` | The relay's thread list: every cross-agent conversation, what it is waiting on, and the command that unsticks it. See [Rounds](#rounds-the-relay). |
 
 `send` and `ask` are the two that only exist because of herdr: catchup can render any session, but only herdr knows which agents are alive right now and how to reach them.
 
@@ -94,6 +96,50 @@ command = "wilbeibi.catchup.ask"
 description = "ask a running agent to review this"
 ```
 
+## Rounds: the relay
+
+`ask` is one round and no acknowledgement: it types a path into another pane and stops. Two models that need to converge — a design and its critic, three rounds deep — need the hard part on top of that: knowing whether the other agent actually answered.
+
+`bin/relay.py` is that layer. A thread is a directory of immutable numbered Markdown files plus a rebuildable index; delivery is `herdr agent prompt`; and the only acknowledgement is the peer running `relay.py reply <message-id>`. Python rather than more bash because a message store needs read-modify-write under a lock, an atomic rename, and JSON — and macOS ships no `flock(1)`.
+
+```bash
+# from inside a herdr pane, as an agent or by hand
+python3 bin/relay.py ask --to reviewer --note-file plan.md --mode debate --max-rounds 4
+python3 bin/relay.py status T-1cd39e19
+python3 bin/relay.py list --format text     # what the `threads` action shows
+python3 bin/relay.py cancel T-1cd39e19
+```
+
+The prompt the peer receives carries the whole protocol, so it works against an agent with nothing installed:
+
+```
+[HERDR-CATCHUP] thread=T-1cd39e19 message=T-1cd39e19-m001 mode=debate kind=request round=1/4
+An agent in another pane sent you work. Read this file first, it is the whole task:
+  ~/.local/state/herdr-catchup/threads/T-1cd39e19/001-request.md
+When you are done, write your response as Markdown to a file and run exactly:
+  python3 .../relay.py reply T-1cd39e19-m001 --file <your-response.md>
+That command is the only acknowledgement that counts. Going idle is not one.
+```
+
+In `--mode debate` that reply *is* the next request — one artifact, two roles — and the thread closes itself when `--max-rounds` is spent or a reply lands after the deadline. In `--mode ask` the answer goes back to the asker as a closing notice and the thread ends there.
+
+**Three facts, never collapsed.** *accepted*: herdr took the submission. *failed*: herdr refused it — durable, retryable with `relay.py retry`, and it burns no round. *answered*: the peer ran `reply`. Only the third is an acknowledgement. An idle agent is not one, and neither is a settled `agent prompt --wait`: that call tracks pane lifecycle, not a turn, so it cannot confirm any particular message was answered. The relay never passes `--wait` — it would also park the sender inside its own turn, leaving the reply nowhere to land.
+
+**Identity is the pane.** Messages are addressed to the pane id resolved at send time, because live agent names get reassigned. If a different provider now occupies that pane, delivery and replies refuse (`peer_recycled`) rather than typing a stranger's work into it. A *session* change in the same pane — `/clear`, a restart, a fork to answer from — is recorded in the result and proceeds, since there is no rebind command and refusing would strand the thread.
+
+**Watch it from a pane.** v1 ships no sweeper: a background sleeper started from an agent's shell inherits that agent's environment for as long as it lives, and a launchd unit is more machinery than this needs. The watchdog is you, one keypress away —
+
+```
+2 thread(s), 1 needing attention   ~/.local/state/herdr-catchup/threads
+
+T-1cd39e19   open       debate  round 2/4  3 msg  12m ago
+    awaiting_reply: T-1cd39e19-m003  (18m left)
+      relay.py reply T-1cd39e19-m003 --file <f>
+T-f8cdcbe1   done       ask     round 1/1  2 msg  2h ago
+```
+
+State lives under `$HERDR_CATCHUP_STATE`, else `$XDG_STATE_HOME/herdr-catchup`, else `~/.local/state/herdr-catchup`. Artifacts are never rewritten, so a finished debate is a readable record of who said what, in order.
+
 ## Agent support
 
 | Agent | Catch up | Fork in place | Handoff target |
@@ -135,7 +181,10 @@ Needs herdr 0.7.5 or newer, on Linux or macOS. 0.7.5 is where `agent prompt` lan
 - **Read-only except `fork`**, which launches an agent CLI.
 - **A handoff is a transcript, not native state.** Cross-agent `fork --into` seeds the new agent with the conversation; only same-agent fork keeps the agent's own session state.
 - **Pane-scoped.** The session comes from the focused pane, and the project directory from that pane's cwd. A pane sitting somewhere with no agent and no sessions finds nothing, and a session started elsewhere isn't reachable from here.
-- **One round, not a debate.** `ask` delivers a review request and stops. It does not wait for the answer, feed it back, or run rounds — that is an orchestrator, and herdr is already the layer that owns panes and agent lifecycle.
+- **`ask` is one round.** The action delivers a review request and stops. Rounds, deadlines, and acknowledgement are the relay's job, and you opt into them explicitly.
+- **One unanswered request per thread.** Sending a correction while the peer is still working would put two live questions in one thread, and no answer ordering makes sense after that. `cancel` and open a new thread; `cancel` is thread-level, so the new thread carries no link back to the cancelled one.
+- **Same machine.** A message is a local path typed into a local pane. `--machine` panes and remote agents are out of scope for v1.
+- **The 30-minute default deadline is a guess.** Nothing has measured how long a real review round takes. A deadline never kills a turn — it only marks the request overdue and stops a late reply from opening another round.
 - **No arguments yet.** herdr plugin actions take no parameters, so session search (`catchup -q`) isn't wired up, and a fixed handoff target has to come from `config.env` rather than the key you pressed.
 - **Linux and macOS only**, herdr 0.7.5+.
 
@@ -157,7 +206,11 @@ These solve nearby problems, and some of them pair well with this plugin rather 
 herdr plugin link /path/to/herdr-catchup
 herdr plugin action list --plugin wilbeibi.catchup
 herdr plugin action invoke wilbeibi.catchup.summary
+
+python3 tests/test_relay.py    # the relay's failure matrix, against a scriptable fake herdr
 ```
+
+The relay's tests are deliberately not a happy-path demo: two agents agreeing is the weakest evidence this code can produce. They cover refused delivery, retry, recycled panes, session drift, expired and late replies, forged callers, cancel, path traversal through `--to`/`--thread`, and concurrent writers.
 
 ## Ideas
 

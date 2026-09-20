@@ -30,6 +30,10 @@ AGENTS=(codex claude agy cline copilot cursor opencode pi-agent)
 
 HERDR="${HERDR_BIN_PATH:-herdr}"
 
+# This script's own directory. Role 1 runs with cwd = plugin dir, role 2 with
+# cwd = the project, so a sibling script has to be addressed absolutely.
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # json_field <key> <json> — first "key": "value" string in a JSON blob.
 # Deliberately sed, not jq: a plugin should not require a JSON parser to be
 # installed for three field reads.
@@ -215,6 +219,15 @@ deliver() {
 in_pane() {
   local mode="${1:-}" target="${2:-}" rc=0
 
+  # Before the catchup check: the relay's v1 watchdog is a human reading this
+  # list, and a thread parked on an unanswered request is exactly when you must
+  # still be able to see it. Listing reads only the state directory.
+  if [ "$mode" = "threads" ]; then
+    python3 "$HERE/relay.py" list --format text || rc=$?
+    hold_open
+    exit "$rc"
+  fi
+
   if ! command -v catchup >/dev/null 2>&1; then
     echo "herdr-catchup: 'catchup' not found on PATH."
     echo "Install it with one of:"
@@ -320,9 +333,9 @@ fi
 
 mode="${1:-}"
 case "$mode" in
-  summary|fork|handoff|send|ask|worktree-created) ;;
+  summary|fork|handoff|send|ask|threads|worktree-created) ;;
   *)
-    echo "usage: run.sh [--in-pane] summary|fork|handoff|send|ask [target]" >&2
+    echo "usage: run.sh [--in-pane] summary|fork|handoff|send|ask|threads [target]" >&2
     echo "       run.sh worktree-created            (herdr event hook)" >&2
     exit 1
     ;;
@@ -366,6 +379,22 @@ if [ "$mode" = "worktree-created" ]; then
     --direction right \
     --cwd "$wt" \
     --env "CATCHUP_DIR=$origin" \
+    --focus
+fi
+
+# ---------- Role 1b: the relay's thread list ----------
+#
+# Every other action is about one pane's session, so it resolves a project
+# directory and refuses without one. Threads are not project-scoped — the state
+# directory is per-user — and refusing to show a stuck thread because the
+# focused pane has no cwd would break the one thing this view is for.
+if [ "$mode" = "threads" ]; then
+  tcwd="$(json_field focused_pane_cwd "$ctx")"
+  [ -n "$tcwd" ] && [ -d "$tcwd" ] || tcwd="$HOME"
+  exec "$HERDR" plugin pane open \
+    --plugin "$plugin_id" \
+    --entrypoint threads \
+    --cwd "$tcwd" \
     --focus
 fi
 
