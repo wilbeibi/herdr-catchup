@@ -48,7 +48,7 @@ Each action is available from the pane, workspace, tab, and selection menus.
 | `wilbeibi.catchup.fork` | `catchup fork` — resumes the session natively in the new pane, e.g. `claude --resume <id> --fork-session`. Full state. |
 | `wilbeibi.catchup.handoff` | Asks which agent (codex / claude / agy / cline / copilot / cursor / opencode / pi-agent), then `catchup fork --into <choice>` — a **new** agent, started with the transcript in hand. |
 | `wilbeibi.catchup.send` | Lists the agents **already running** in this herdr session, renders the transcript to a file, and hands the one you pick its path. No new process; the agent in that pane picks the work up. |
-| `wilbeibi.catchup.ask` | Same delivery, review framing: the other agent is asked to attack the assumptions of your latest turn, name a cheaper alternative, and say where it breaks. Two models arguing, one round. |
+| `wilbeibi.catchup.ask` | Same delivery, review framing: the other agent is asked to attack the assumptions of your latest turn, name a cheaper alternative, and say where it breaks. When it finishes, this pane's agent is prompted to read the review and say what it would change. Two models arguing, one round. |
 
 `send` and `ask` are the two that only exist because of herdr: catchup can render any session, but only herdr knows which agents are alive right now and how to reach them.
 
@@ -126,7 +126,9 @@ herdr does not recognize DeepSeek or ZCode as pane agents, so those two never ge
 
 No pane at all? The failure happened before the pane existed. It's in `herdr plugin log list --plugin wilbeibi.catchup`.
 
-Needs herdr 0.7.5 or newer, on Linux or macOS. 0.7.5 is where `agent prompt` landed, and `send` and `ask` are nothing without it.
+**How a review comes back.** When the reviewer finishes, the source pane's agent — once it is idle or done — gets one line telling it to read the review with `catchup <agent> --id <reviewer session> --agent --last 1` (or `--dir <reviewer cwd>` when herdr names no session) and say what it would change, as another model's opinion, not instructions. Nothing comes back when the reviewer was mid-turn when asked, or is an agent catchup cannot read. The line is typed the moment the source agent goes idle or done, so if you are typing in that pane just then, the two collide.
+
+Needs herdr 0.9.0 or newer, on Linux or macOS. 0.9.0 is where `agent prompt --wait --until` landed, which `ask` needs to know the review has started.
 
 ## Limits and non-goals
 
@@ -135,9 +137,9 @@ Needs herdr 0.7.5 or newer, on Linux or macOS. 0.7.5 is where `agent prompt` lan
 - **Read-only except `fork`**, which launches an agent CLI.
 - **A handoff is a transcript, not native state.** Cross-agent `fork --into` seeds the new agent with the conversation; only same-agent fork keeps the agent's own session state.
 - **Pane-scoped.** The session comes from the focused pane, and the project directory from that pane's cwd. A pane sitting somewhere with no agent and no sessions finds nothing, and a session started elsewhere isn't reachable from here.
-- **One round, not a debate.** `ask` delivers a review request and stops. It does not wait for the answer, feed it back, or run rounds — that is an orchestrator, and herdr is already the layer that owns panes and agent lifecycle.
+- **One round, not a debate.** `ask` delivers a review request, and one reply comes back to the source pane once its agent is ready for input. No further rounds and no debate loop — that is an orchestrator, and herdr is already the layer that owns panes and agent lifecycle.
 - **No arguments yet.** herdr plugin actions take no parameters, so session search (`catchup -q`) isn't wired up, and a fixed handoff target has to come from `config.env` rather than the key you pressed.
-- **Linux and macOS only**, herdr 0.7.5+.
+- **Linux and macOS only**, herdr 0.9.0+.
 
 ## Alternatives
 

@@ -1,11 +1,11 @@
 id = "wilbeibi.catchup"
 name = "Catchup"
-version = "0.6.0"
-# 0.7.5 is the oldest herdr with `agent.prompt`, which `send` and `ask` use to
-# hand a transcript to an agent already running in another pane. Every other
-# API here — `agent get`, `plugin pane open` with `env` and `target_pane_id` —
-# is 0.7.0, but two of the five actions cannot work below 0.7.5.
-min_herdr_version = "0.7.5"
+version = "0.7.0"
+# 0.9.0 is the oldest herdr whose `agent prompt` takes `--wait --until`, which
+# `send` and `ask` use to report a prompt the agent never took up, and which
+# lets `ask` know the review turn has started before it waits for it to end and
+# points the source pane at the reply.
+min_herdr_version = "0.9.0"
 description = "Cross-agent coding-session handoff: summarize, fork, or hand this pane's session to another agent — a fresh one, or one already running in another pane"
 platforms = ["linux", "macos"]
 
